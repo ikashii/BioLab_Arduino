@@ -29,7 +29,7 @@ void flash()
   package.ch2 = readAdc(2);
 
   Serial.write(dataDividerByte);
-  Serial.write((byte*)&package, 11);    //11 Bit, 88 Bytes
+  Serial.write((byte*)&package, 10);    //10 Bit, 80 Bytes
   index++;
 }
 
