@@ -1,5 +1,7 @@
 #include <FlexiTimer2.h>
 #include <SPI.h>
+#include <Wire.h>
+
 
 //     MCP3204 -- Arduino
 //Chipselect 8 -- D10
@@ -9,6 +11,9 @@
 
 // Set Constants
 const int CS = 10;      // set pin 10 as the chip select for the ADC:
+char adresse1 = 40;    //0101A2A1A0 = 0101000 = 40
+char adresse2 = 44;    //0101A2A1A0 = 0101100 = 44
+
 
 typedef struct
 {
@@ -20,8 +25,35 @@ typedef struct
 int8_t dataDividerByte = 120;    // Separator
 uint32_t index = 0;
 
+int8_t start_sending_Byte = 001;
+int8_t stop_sending_Byte = 000;
+int8_t mag_Byte = 121;
+bool senddata = false;
+
+
+byte values[3] = {100, 100, 100};
+
+
+void setWiper(char adresse, int wiper, int value){
+  
+  Wire.beginTransmission(adresse);              //Gerät wird ausgewählt mit der Adresse
+  if(wiper == 0 && value <= 255 && value >= 0){ //Es wird zwischen Wiper 0 und 1 gewählt
+      Wire.write(0xA9);                         //Wiper0 = 0xA9 (Datenblatt)
+      Wire.write(value);                        //Der wert wird in den Wiper geschrieben
+  }if(wiper == 1 && value <= 255 && value >= 0){
+      Wire.write(0xAA);                         //Wiper1 = 0xAA (Datenblatt)
+      Wire.write(value);
+  }
+  int fehler = Wire.endTransmission();                       //Das übertragen wird Beendet
+  Serial.println(fehler);
+}
+
 void flash() 
 {
+  index++;
+  if(!senddata){
+    return;
+  }
   DataPackage package;
   package.sampleIndex = index;
   package.ch0 = readAdc(0);
@@ -30,7 +62,6 @@ void flash()
 
   Serial.write(dataDividerByte);
   Serial.write((byte*)&package, 10);    //10 Bit, 80 Bytes
-  index++;
 }
 
 // Start setup function:
@@ -49,11 +80,45 @@ void setup() {
   FlexiTimer2::set(1, 1.0/2000.0, flash); // 2000x per second T = 0.5ms
   FlexiTimer2::start();
 
-  
+  Wire.begin();
+  //Wire.setClock(10000);
+  //setWiper(adresse1, 1, 100);
+  setWiper(adresse1, 1, values[0]);
+  setWiper(adresse1, 0, values[1]);                   
+  setWiper(adresse2, 1, values[2]);
+  setWiper(adresse2, 0, values[2]);
 } // End setup function.
 
 // Start loop function:
 void loop() {  
+
+  if(Serial.available() >= 1){
+    char inchar = Serial.read();
+    if(inchar == start_sending_Byte){
+      senddata = true;
+     
+    }
+    if(inchar == stop_sending_Byte){
+      senddata = false;
+          
+    }
+    if(inchar == mag_Byte){
+        Serial.readBytes(values, 3);      
+        setWiper(adresse1, 1, values[0]);
+        setWiper(adresse1, 0, values[1]);                   
+        setWiper(adresse2, 1, values[2]);
+        setWiper(adresse2, 0, values[2]);
+        
+       }
+    
+  }
+//  delay(500);
+//  setWiper(adresse1, 1, 255);
+//  setWiper(adresse1, 0, 255);                   
+//  setWiper(adresse2, 0, 255);
+//  setWiper(adresse2, 1, 255);
+
+
   
 }// End of loop function.
 
